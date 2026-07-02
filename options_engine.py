@@ -123,6 +123,7 @@ class Trade:
     qty:       int
     timestamp: float = field(default_factory=time.time)
     fair_value: float = 0.0
+    spot_at_trade: float = 0.0   # spot price at time of execution
 
     @property
     def edge(self):
@@ -216,7 +217,8 @@ class OrderBook:
             ask.filled += exec_qty
 
             trade = Trade(buy_id=bid.order_id, sell_id=ask.order_id,
-                          price=exec_price, qty=exec_qty, fair_value=fv)
+                          price=exec_price, qty=exec_qty, fair_value=fv,
+                          spot_at_trade=spot)
             self.trades.append(trade)
             new_trades.append(trade)
 
@@ -393,7 +395,7 @@ def plot_market_analytics(market: OptionsMarket, symbol: str):
     fvs    = [t.fair_value for t in trades]
     edges  = [t.edge       for t in trades]
     times  = list(range(len(trades)))
-    ivs    = [implied_vol(t.price, market.spot, book.contract.strike,
+    ivs    = [implied_vol(t.price, t.spot_at_trade, book.contract.strike,
                           book.contract.expiry, market.r,
                           book.contract.opt_type)
               for t in trades]
@@ -477,7 +479,7 @@ def plot_market_analytics(market: OptionsMarket, symbol: str):
         color=TEXT, fontsize=11, y=1.01
     )
 
-    out = 'market_analytics.png'
+    out = '/mnt/user-data/outputs/market_analytics.png'
     plt.savefig(out, dpi=150, bbox_inches='tight',
                 facecolor=fig.get_facecolor())
     plt.close()
