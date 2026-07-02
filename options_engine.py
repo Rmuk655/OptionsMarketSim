@@ -479,7 +479,7 @@ def plot_market_analytics(market: OptionsMarket, symbol: str):
         color=TEXT, fontsize=11, y=1.01
     )
 
-    out = '/mnt/user-data/outputs/market_analytics.png'
+    out = 'market_analytics.png'
     plt.savefig(out, dpi=150, bbox_inches='tight',
                 facecolor=fig.get_facecolor())
     plt.close()
