@@ -28,17 +28,17 @@ pip install numpy matplotlib scipy
 
 **Interactive CLI:**
 ```bash
-python options_market.py
+python options_engine.py
 ```
 
 **Automated demo (generates plots, no input needed):**
 ```bash
-python options_market.py --demo
+python options_engine.py --demo
 ```
 
 **Custom parameters:**
 ```bash
-python options_market.py --underlying TSLA --spot 200 --sigma 0.35 --rate 0.05
+python options_engine.py --underlying TSLA --spot 200 --sigma 0.35 --rate 0.05
 ```
 
 ## CLI Commands
@@ -68,8 +68,8 @@ quit                                       Exit
 
 >>> chain
   OPTION CHAIN — AAPL  Spot=$150.00  σ=20%  r=5%
-  AAPL150C6M  FV=$10.333  Delta=+0.598  Theta=-12.186/day
-  AAPL142P6M  FV=$ 3.637  Delta=-0.263  Theta= -4.775/day
+  AAPL150C6M  FV=$10.333  Delta=+0.598  Theta=-0.0334/day
+  AAPL142P6M  FV=$ 3.637  Delta=-0.263  Theta=-0.0131/day
 
 >>> buy  AAPL150C6M 10.25 5
 >>> sell AAPL150C6M 10.30 3
@@ -120,7 +120,7 @@ The order book doesn't enforce these — participants can trade at any price. Th
 ## Files
 
 ```
-options_market.py        Main simulator: order book + BS engine + CLI + analytics
+options_engine.py        Main simulator: order book + BS engine + CLI + analytics
 README.md                This file
 market_analytics.png     Generated after running --demo or 'plot' command
 ```
