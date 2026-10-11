@@ -12,8 +12,8 @@ Author: Krishnan R
 
 Usage
 -----
-  python options_market.py              # interactive CLI
-  python options_market.py --demo       # run automated demo + generate plots
+  python options_engine.py              # interactive CLI
+  python options_engine.py --demo       # run automated demo + generate plots
 """
 
 import sys
@@ -46,11 +46,11 @@ def bs_price(S, K, T, r, sigma, opt='call'):
 
 
 def bs_greeks(S, K, T, r, sigma, opt='call', h=0.01):
-    """Greeks via central finite differences."""
+    """Greeks via finite differences (theta is per day, vega per 1% vol)."""
     f  = lambda **kw: bs_price(**{'S':S,'K':K,'T':T,'r':r,'sigma':sigma,'opt':opt,**kw})
     delta = (f(S=S+h*S) - f(S=S-h*S)) / (2*h*S)
     gamma = (f(S=S+h*S) - 2*f() + f(S=S-h*S)) / (h*S)**2
-    theta = (f(T=max(T-1/365,1e-6)) - f()) * 365
+    theta = f(T=max(T-1/365,1e-6)) - f()   # price change over one day
     vega  = (f(sigma=sigma+0.01) - f(sigma=sigma-0.01)) / 0.02 / 100
     return {'delta': delta, 'gamma': gamma, 'theta': theta, 'vega': vega}
 
