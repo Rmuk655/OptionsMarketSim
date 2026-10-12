@@ -124,3 +124,7 @@ options_engine.py        Main simulator: order book + BS engine + CLI + analytic
 README.md                This file
 market_analytics.png     Generated after running --demo or 'plot' command
 ```
+
+## Authorship
+
+The code in this repository was written by an AI coding assistant (Claude Code). It is kept as a demo and learning project, not as original work.
