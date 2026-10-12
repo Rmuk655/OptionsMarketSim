@@ -23,7 +23,7 @@ In the demo, trades cluster within ±$0.20 of fair value with mean edge ≈ −$
 ## Usage
 
 ```bash
-pip install numpy matplotlib scipy
+pip install -r requirements.txt
 ```
 
 **Interactive CLI:**
