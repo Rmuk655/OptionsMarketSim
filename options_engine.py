@@ -140,8 +140,8 @@ class OrderBook:
     Limit order book for a single options contract.
 
     Price-time priority:
-      Buys  — highest price first; ties broken by earliest timestamp.
-      Sells — lowest  price first; ties broken by earliest timestamp.
+      Buys  — highest price first; ties broken by earliest arrival (order id).
+      Sells — lowest  price first; ties broken by earliest arrival (order id).
 
     Implemented with two heaps:
       _bids: max-heap (negate price for Python's min-heap)
@@ -150,18 +150,18 @@ class OrderBook:
 
     def __init__(self, contract: Contract):
         self.contract = contract
-        self._bids: list = []   # max-heap: (-price, timestamp, order)
-        self._asks: list = []   # min-heap: ( price, timestamp, order)
+        self._bids: list = []   # max-heap: (-price, order_id, order)
+        self._asks: list = []   # min-heap: ( price, order_id, order)
         self.trades: list[Trade] = []
         self._order_map: dict[int, Order] = {}
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     def _push_bid(self, order: Order):
-        heapq.heappush(self._bids, (-order.price, order.timestamp, order))
+        heapq.heappush(self._bids, (-order.price, order.order_id, order))
 
     def _push_ask(self, order: Order):
-        heapq.heappush(self._asks, ( order.price, order.timestamp, order))
+        heapq.heappush(self._asks, ( order.price, order.order_id, order))
 
     def _top_bid(self) -> Optional[Order]:
         while self._bids:
@@ -210,7 +210,7 @@ class OrderBook:
             if bid.price < ask.price:      break   # no cross
 
             # Match: use resting order's price (price-time priority)
-            exec_price = ask.price if bid.timestamp > ask.timestamp else bid.price
+            exec_price = ask.price if bid.order_id > ask.order_id else bid.price
             exec_qty   = min(bid.remaining, ask.remaining)
 
             bid.filled += exec_qty
@@ -248,12 +248,12 @@ class OrderBook:
     @property
     def spread(self) -> Optional[float]:
         bb, ba = self.best_bid, self.best_ask
-        return round(ba - bb, 4) if bb and ba else None
+        return round(ba - bb, 4) if bb is not None and ba is not None else None
 
     @property
     def mid(self) -> Optional[float]:
         bb, ba = self.best_bid, self.best_ask
-        return round((bb + ba) / 2, 4) if bb and ba else None
+        return round((bb + ba) / 2, 4) if bb is not None and ba is not None else None
 
     def depth(self, levels=5):
         """Return top-N bid/ask levels as (price, qty) lists."""
@@ -276,7 +276,7 @@ class OrderBook:
 
         print(f"\n{'─'*52}")
         print(f"  {self.contract.symbol}  |  Spot=${spot:.2f}  "
-              f"Fair Value=${fv:.3f}  σ=20%")
+              f"Fair Value=${fv:.3f}  σ={sigma*100:.0f}%")
         print(f"  Δ={g['delta']:+.3f}  Γ={g['gamma']:.4f}  "
               f"θ={g['theta']:+.4f}/day  ν={g['vega']:.4f}/1%")
         print(f"{'─'*52}")
@@ -320,6 +320,8 @@ class OptionsMarket:
 
     def add_contract(self, strike: float, expiry: float,
                      opt_type: str = 'call') -> Contract:
+        if opt_type not in ('call', 'put'):
+            raise ValueError(f"option type must be 'call' or 'put', got '{opt_type}'")
         c = Contract(self.underlying, strike, expiry, opt_type)
         self.books[c.symbol] = OrderBook(c)
         return c
@@ -530,61 +532,64 @@ def run_cli(market: OptionsMarket):
         parts = raw.split()
         cmd   = parts[0].lower()
 
-        if cmd in ('quit', 'exit', 'q'):
-            print("  Goodbye."); break
+        try:
+            if cmd in ('quit', 'exit', 'q'):
+                print("  Goodbye."); break
 
-        elif cmd == 'help':
-            print(HELP)
+            elif cmd == 'help':
+                print(HELP)
 
-        elif cmd == 'add' and len(parts) == 4:
-            strike = float(parts[1])
-            expiry = float(parts[2]) / 12
-            opt    = parts[3].lower()
-            c = market.add_contract(strike, expiry, opt)
-            fv = c.fair_value(market.spot, market.r, market.sigma)
-            print(f"  Added {c.symbol}  FV=${fv:.3f}")
+            elif cmd == 'add' and len(parts) == 4:
+                strike = float(parts[1])
+                expiry = float(parts[2]) / 12
+                opt    = parts[3].lower()
+                c = market.add_contract(strike, expiry, opt)
+                fv = c.fair_value(market.spot, market.r, market.sigma)
+                print(f"  Added {c.symbol}  FV=${fv:.3f}")
 
-        elif cmd in ('buy', 'sell') and len(parts) == 4:
-            sym   = parts[1]
-            price = float(parts[2])
-            qty   = int(parts[3])
-            market.submit_order(sym, cmd, price, qty)
+            elif cmd in ('buy', 'sell') and len(parts) == 4:
+                sym   = parts[1]
+                price = float(parts[2])
+                qty   = int(parts[3])
+                market.submit_order(sym, cmd, price, qty)
 
-        elif cmd == 'cancel' and len(parts) == 2:
-            oid = int(parts[1])
-            for book in market.books.values():
-                if book.cancel(oid):
-                    print(f"  Cancelled order #{oid}"); break
+            elif cmd == 'cancel' and len(parts) == 2:
+                oid = int(parts[1])
+                for book in market.books.values():
+                    if book.cancel(oid):
+                        print(f"  Cancelled order #{oid}"); break
+                else:
+                    print(f"  Order #{oid} not found or already filled.")
+
+            elif cmd == 'book' and len(parts) == 2:
+                market.show_book(parts[1])
+
+            elif cmd == 'chain':
+                market.show_chain()
+
+            elif cmd == 'spot' and len(parts) == 2:
+                market.update_spot(float(parts[1]))
+
+            elif cmd == 'plot' and len(parts) == 2:
+                plot_market_analytics(market, parts[1])
+
+            elif cmd == 'trades':
+                sym = parts[1] if len(parts) > 1 else None
+                books = ([market.books[sym]] if sym and sym in market.books
+                         else market.books.values())
+                for book in books:
+                    if book.trades:
+                        print(f"\n  Trades for {book.contract.symbol}:")
+                        for t in book.trades:
+                            print(f"    #{t.buy_id}×#{t.sell_id}  "
+                                  f"{t.qty}x @ ${t.price:.3f}  "
+                                  f"FV=${t.fair_value:.3f}  "
+                                  f"edge={t.edge:+.4f}")
+
             else:
-                print(f"  Order #{oid} not found or already filled.")
-
-        elif cmd == 'book' and len(parts) == 2:
-            market.show_book(parts[1])
-
-        elif cmd == 'chain':
-            market.show_chain()
-
-        elif cmd == 'spot' and len(parts) == 2:
-            market.update_spot(float(parts[1]))
-
-        elif cmd == 'plot' and len(parts) == 2:
-            plot_market_analytics(market, parts[1])
-
-        elif cmd == 'trades':
-            sym = parts[1] if len(parts) > 1 else None
-            books = ([market.books[sym]] if sym and sym in market.books
-                     else market.books.values())
-            for book in books:
-                if book.trades:
-                    print(f"\n  Trades for {book.contract.symbol}:")
-                    for t in book.trades:
-                        print(f"    #{t.buy_id}×#{t.sell_id}  "
-                              f"{t.qty}x @ ${t.price:.3f}  "
-                              f"FV=${t.fair_value:.3f}  "
-                              f"edge={t.edge:+.4f}")
-
-        else:
-            print(f"  Unknown command: '{raw}'  (type 'help')")
+                print(f"  Unknown command: '{raw}'  (type 'help')")
+        except ValueError as exc:
+            print(f"  [!] Invalid argument: {exc}  (type 'help')")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

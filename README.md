@@ -18,7 +18,7 @@ Combines two ideas into one system:
 
 Black-Scholes gives you a theoretical "fair value" for an option. The order book shows you what people are actually willing to pay. The edge (trade price − fair value) tells you whether the market is pricing efficiently around the model — and the implied vol of each trade tells you what volatility the market is implying, versus what the model assumes.
 
-In the demo, trades cluster within ±$0.20 of fair value with mean edge ≈ −$0.03, and implied vols stay close to the 20% model input — consistent with an efficient market around the BS model.
+The demo (`--demo`, seeded with `random.seed(42)`) submits randomised orders within +/-$0.30 of fair value and writes `market_analytics.png`; because the orders are random around the model price, it exercises the analytics rather than testing market efficiency.
 
 ## Usage
 
@@ -59,31 +59,23 @@ quit                                       Exit
 
 ## Example session
 
+Illustrative; exact figures depend on spot, sigma and rate.
+
 ```
 >>> add 150 6 call
   Added AAPL150C6M  FV=$10.333
 
->>> add 142 6 put
-  Added AAPL142P6M  FV=$3.637
-
->>> chain
-  OPTION CHAIN — AAPL  Spot=$150.00  σ=20%  r=5%
-  AAPL150C6M  FV=$10.333  Delta=+0.598  Theta=-0.0334/day
-  AAPL142P6M  FV=$ 3.637  Delta=-0.263  Theta=-0.0131/day
-
 >>> buy  AAPL150C6M 10.25 5
->>> sell AAPL150C6M 10.30 3
-  ✓ TRADE  3x AAPL150C6M @ $10.25  FV=$10.333  edge=-0.083  IV=19.8%
+>>> sell AAPL150C6M 10.20 3
+  TRADE  3x AAPL150C6M @ $10.250  FV=$10.333  edge=-0.083  IV=...%
 
 >>> book AAPL150C6M
-  [shows live order book with vs-FV column]
-
 >>> spot 155
-  Spot updated → $155.00   (all fair values reprice instantly)
-
 >>> plot AAPL150C6M
   Saved: market_analytics.png
 ```
+
+The trade executes at the resting bid price (price-time priority).
 
 ## Order book mechanics
 
@@ -124,3 +116,11 @@ options_engine.py        Main simulator: order book + BS engine + CLI + analytic
 README.md                This file
 market_analytics.png     Generated after running --demo or 'plot' command
 ```
+
+## Limitations
+
+- Single process, in-memory only; no persistence and no tests in the repository.
+- A single constant sigma and rate are used for all contracts (no volatility surface).
+- Timestamps come from `time.time()`; orders submitted within one clock tick can tie, so time priority among them is not guaranteed.
+- CLI input is not validated: non-numeric arguments raise an exception.
+- `market_analytics.png` is a generated sample output of the demo.
